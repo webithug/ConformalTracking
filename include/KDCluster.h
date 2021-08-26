@@ -24,6 +24,7 @@ public:
   KDCluster()
       : m_x(0.0),
         m_y(0.0),
+        m_time(0.0),
         m_u(0.0),
         m_v(0.0),
         m_r(0.0),
@@ -48,6 +49,7 @@ public:
   KDCluster(EVENT::TrackerHitPlane* hit, bool endcap, bool forward = false)
       : m_x(hit->getPosition()[0]),
         m_y(hit->getPosition()[1]),
+        m_time(hit->getTime()),
         m_u(0.0),
         m_v(0.0),
         m_r(0.0),
@@ -118,6 +120,7 @@ public:
   // Calls to get co-ordinates
   double getX() const { return m_x; }
   double getY() const { return m_y; }
+  double getT() const { return m_time; }
   double getU() const { return m_u; }
   double getV() const { return m_v; }
   double getR() const { return m_r; }
@@ -182,6 +185,7 @@ private:
   // and polar notation, plus the subdetector information
   double m_x         = 0.0;
   double m_y         = 0.0;
+  double m_time      = 0.0;
   double m_u         = 0.0;
   double m_v         = 0.0;
   double m_r         = 0.0;
