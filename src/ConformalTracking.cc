@@ -1914,8 +1914,9 @@ void ConformalTracking::extendTracksPerLayer(UniqueKDTracks& conformalTracks, Sh
                             << "]; r = " << kdhit->getR() << "; [subdet,layer] = [" << kdhit->getSubdetector() << ", "
                             << kdhit->getLayer() << "]" << std::endl;
       double theta = kdhit->getTheta();
+      double searchTime = parameters._maxTimeDifference;
       nearestNeighbours->allNeighboursInTheta(
-          theta, m_thetaRange * 4, results, [&kdhit, vertexToTracker](SKDCluster const& nhit) {
+          theta, m_thetaRange * 4, results, [&kdhit, vertexToTracker, searchTime](SKDCluster const& nhit) {
             //if same subdet, take only the hits within two layers
             if (nhit->getSubdetector() == kdhit->getSubdetector()) {
               if ((vertexToTracker && nhit->getLayer() > (kdhit->getLayer() + 2)) ||
@@ -1925,6 +1926,8 @@ void ConformalTracking::extendTracksPerLayer(UniqueKDTracks& conformalTracks, Sh
             }
 
             if ((vertexToTracker && nhit->getR() > kdhit->getR()) || (!vertexToTracker && nhit->getR() < kdhit->getR()))
+              return true;
+            if (abs(kdhit->getT() - nhit->getT()) > searchTime)
               return true;
             return false;
           });
