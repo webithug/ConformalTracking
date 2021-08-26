@@ -1601,8 +1601,9 @@ void ConformalTracking::extendSeedCells(SharedCells& cells, UKDTree& nearestNeig
       SKDCluster const& fakeHit =
           extrapolateCell(cells[itCell], searchDistance / 2.);  // TODO: make this search a function of radius
       SharedKDClusters results;
+      double searchTime = parameters._maxTimeDifference;
       nearestNeighbours->allNeighboursInRadius(
-          fakeHit, 0.625 * searchDistance, results, [&hit, vertexToTracker](SKDCluster const& nhit) {
+          fakeHit, 0.625 * searchDistance, results, [&hit, vertexToTracker, searchTime](SKDCluster const& nhit) {
             if (nhit->used())
               return true;
             if (hit->sameLayer(nhit))
@@ -1610,6 +1611,8 @@ void ConformalTracking::extendSeedCells(SharedCells& cells, UKDTree& nearestNeig
             if (nhit->endcap() && hit->endcap() && (nhit->forward() != hit->forward()))
               return true;
             if ((vertexToTracker && nhit->getR() >= hit->getR()) || (!vertexToTracker && nhit->getR() <= hit->getR()))
+              return true;
+            if (abs(hit->getT() - nhit->getT()) > searchTime)
               return true;
             return false;
           });
