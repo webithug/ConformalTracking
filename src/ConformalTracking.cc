@@ -970,12 +970,14 @@ void ConformalTracking::buildNewTracks(UniqueKDTracks& conformalTracks, SharedKD
     // Get the initial seed cells for this hit, by looking at neighbouring hits in a given
     // radial distance. Check that they are at lower radius and further from the IP
     SharedKDClusters results;
+    double           searchTime = parameters._maxTimeDifference;
     double           theta = kdhit->getTheta();
     // Filter already if the neighbour is used, is on the same detector layer,
     // or is in the opposite side of the detector and points inwards
+    
     if (radialSearch)
       nearestNeighbours->allNeighboursInRadius(
-          kdhit, parameters._maxDistance, results, [&kdhit, vertexToTracker](SKDCluster const& nhit) {
+          kdhit, parameters._maxDistance, results, [&kdhit, vertexToTracker, searchTime](SKDCluster const& nhit) {
             if (nhit->used())
               return true;
             if (kdhit->sameLayer(nhit))
@@ -985,12 +987,14 @@ void ConformalTracking::buildNewTracks(UniqueKDTracks& conformalTracks, SharedKD
               return true;
             //radial conditions not met
             if ((vertexToTracker && nhit->getR() >= kdhit->getR()) || (!vertexToTracker && nhit->getR() <= kdhit->getR()))
+              return true;
+            if (abs(kdhit->getT() - nhit ->getT()) > searchTime )
               return true;
             return false;
           });
     else
       nearestNeighbours->allNeighboursInTheta(
-          theta, m_thetaRange, results, [&kdhit, vertexToTracker](SKDCluster const& nhit) {
+          theta, m_thetaRange, results, [&kdhit, vertexToTracker, searchTime](SKDCluster const& nhit) {
             if (nhit->used())
               return true;
             if (kdhit->sameLayer(nhit))
@@ -1001,7 +1005,8 @@ void ConformalTracking::buildNewTracks(UniqueKDTracks& conformalTracks, SharedKD
             //radial conditions not met
             if ((vertexToTracker && nhit->getR() >= kdhit->getR()) || (!vertexToTracker && nhit->getR() <= kdhit->getR()))
               return true;
-
+            if (abs(kdhit->getT() - nhit ->getT()) > searchTime )
+              return true;
             return false;
           });
 
