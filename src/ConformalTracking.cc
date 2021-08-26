@@ -1512,6 +1512,12 @@ void ConformalTracking::extendTracks(UniqueKDTracks& conformalTracks, SharedKDCl
         continue;
       }
 
+      //Time selection:
+      double searchTime = parameters._maxTimeDifference;
+      SKDCluster endhit= track->m_clusters[nclusters - 1];
+      if(abs(endhit->getT() - kdhit->getT()) > searchTime ) {
+        streamlog_out(DEBUG7)  << "-- killed by time cut" << std::endl;
+      }
       // Now fit the track with the new hit and check the increase in chi2
       double deltaChi2(0.), deltaChi2zs(0.);
 
