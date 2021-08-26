@@ -205,6 +205,7 @@ protected:
   double                               m_maxCellAngle               = 0.0;
   double                               m_maxCellAngleRZ             = 0.0;
   double                               m_maxDistance                = 0.0;
+  double                               m_maxTimeDifference          = 0.0;
   double                               m_slopeZRange                = 1000.0;
   double                               m_highPTcut                  = 0.0;
   int                                  m_minClustersOnTrack         = 0;

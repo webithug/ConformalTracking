@@ -52,9 +52,9 @@ using namespace AIDA;
 ConformalTracking aConformalTracking;
 
 /*
- 
+
  Pattern recognition code for the CLIC detector, using conformal mapping and cellular automaton
- 
+
  */
 
 class TooManyTracksException : public marlin::SkipEventException {
@@ -91,6 +91,8 @@ ConformalTracking::ConformalTracking() : Processor("ConformalTracking") {
                              double(0.035));
   registerProcessorParameter("MaxDistance", "Maximum length of a cell (max. distance between two hits)", m_maxDistance,
                              double(0.015));
+  registerProcessorParameter("MaxTimeDifference", "Maximum time difference between two hits", m_maxTimeDifference,
+                             double(1.0));
   registerProcessorParameter("HighPTCut", "pT threshold (in GeV) for enabling extendHighPT in extendTracks", m_highPTcut,
                              double(10.0));
   registerProcessorParameter("MaxChi2", "Maximum chi2/ndof for linear conformal tracks", m_chi2cut, double(300.));
@@ -250,53 +252,53 @@ void ConformalTracking::parseStepParameters() {
   int step = 0;
   // Build tracks in the vertex barrel
   Parameters initialParameters(m_vertexBarrelHits, m_maxCellAngle, m_maxCellAngleRZ, m_chi2cut, m_minClustersOnTrack,
-                               m_maxDistance, m_slopeZRange, m_highPTcut, /*highPT*/ true, /*OnlyZS*/ false,
+                               m_maxDistance, m_maxTimeDifference, m_slopeZRange, m_highPTcut, /*highPT*/ true, /*OnlyZS*/ false,
                                /*rSearch*/ false,
                                /*vtt*/ true, /*kalmanFitForward*/ true, step++,
                                /*combine*/ true, /*build*/ true, /*extend*/ false, /*sort*/ false);
   // Extend through the endcap
   Parameters parameters2(m_vertexEndcapHits, m_maxCellAngle, m_maxCellAngleRZ, m_chi2cut, m_minClustersOnTrack,
-                         m_maxDistance, m_slopeZRange, m_highPTcut, /*highPT*/ true, /*OnlyZS*/ false,
+                         m_maxDistance, m_maxTimeDifference, m_slopeZRange, m_highPTcut, /*highPT*/ true, /*OnlyZS*/ false,
                          /*rSearch*/ false, /*vtt*/ true,
                          /*kalmanFitForward*/ true, step++,
                          /*combine*/ true, /*build*/ false, /*extend*/ true, /*sort*/ false);
   // Make combined vertex tracks
   Parameters parametersTCVC(m_vertexCombinedHits, m_maxCellAngle, m_maxCellAngleRZ, m_chi2cut, m_minClustersOnTrack,
-                            m_maxDistance, m_slopeZRange, m_highPTcut, /*highPT*/ true, /*OnlyZS*/ false,
+                            m_maxDistance, m_maxTimeDifference, m_slopeZRange, m_highPTcut, /*highPT*/ true, /*OnlyZS*/ false,
                             /*rSearch*/ false, /*vtt*/ true,
                             /*kalmanFitForward*/ true, step++,
                             /*combine*/ true, /*build*/ true, /*extend*/ false, /*sort*/ false);
   // Make leftover tracks in the vertex with lower requirements
   // 1. open the cell angles
   Parameters lowerCellAngleParameters(m_vertexCombinedHits, m_maxCellAngle * 5.0, m_maxCellAngleRZ * 5.0, m_chi2cut,
-                                      m_minClustersOnTrack, m_maxDistance, m_slopeZRange, m_highPTcut,
+                                      m_minClustersOnTrack, m_maxDistance, m_maxTimeDifference, m_slopeZRange, m_highPTcut,
                                       /*highPT*/ true, /*OnlyZS*/ false,
                                       /*rSearch*/ true, /*vtt*/ true, /*kalmanFitForward*/ true, step++,
                                       /*combine*/ not m_enableTCVC, /*build*/ true, /*extend*/ false, /*sort*/ false);
   // 2. open further the cell angles and increase the chi2cut
   Parameters lowerCellAngleParameters2({}, m_maxCellAngle * 10.0, m_maxCellAngleRZ * 10.0, m_chi2cut * 20.0,
-                                       m_minClustersOnTrack, m_maxDistance, m_slopeZRange, m_highPTcut,
+                                       m_minClustersOnTrack, m_maxDistance, m_maxTimeDifference, m_slopeZRange, m_highPTcut,
                                        /*highPT*/ true, /*OnlyZS*/ false,
                                        /*rSearch*/ true, /*vtt*/ true, /*kalmanFitForward*/ true, step++,
                                        /*combine*/ false, /*build*/ true, /*extend*/ false, /*sort*/ false);
   // 3. min number of hits on the track = 4
 
   Parameters lowNumberHitsParameters({}, m_maxCellAngle * 10.0, m_maxCellAngleRZ * 10.0, m_chi2cut * 20.0,
-                                     /*m_minClustersOnTrack*/ 4, m_maxDistance, m_slopeZRange, m_highPTcut,
+                                     /*m_minClustersOnTrack*/ 4, m_maxDistance, m_maxTimeDifference, m_slopeZRange, m_highPTcut,
                                      /*highPT*/ true,
                                      /*OnlyZS*/ false,
                                      /*rSearch*/ true, /*vtt*/ true, /*kalmanFitForward*/ true, step++,
                                      /*combine*/ false, /*build*/ true, /*extend*/ false, /*sort*/ true);
   // Extend through inner and outer trackers
   Parameters trackerParameters(m_trackerHits, m_maxCellAngle * 10.0, m_maxCellAngleRZ * 10.0, m_chi2cut * 20.0,
-                               /*m_minClustersOnTrack*/ 4, m_maxDistance, m_slopeZRange, /*highPTcut*/ 1.0,
+                               /*m_minClustersOnTrack*/ 4, m_maxDistance, m_maxTimeDifference, m_slopeZRange, /*highPTcut*/ 1.0,
                                /*highPT*/ true,
                                /*OnlyZS*/ false,
                                /*rSearch*/ true, /*vtt*/ true, /*kalmanFitForward*/ true, step++,
                                /*combine*/ true, /*build*/ false, /*extend*/ true, /*sort*/ false);
   // Finally reconstruct displaced tracks
   Parameters displacedParameters(m_allHits, m_maxCellAngle * 10.0, m_maxCellAngleRZ * 10.0, m_chi2cut * 10.0,
-                                 /*m_minClustersOnTrack*/ 5, 0.015, m_slopeZRange, m_highPTcut,
+                                 /*m_minClustersOnTrack*/ 5, 0.015, m_maxTimeDifference, m_slopeZRange, m_highPTcut,
                                  /*highPT*/ false, /*OnlyZS*/ true,
                                  /*rSearch*/ true,
                                  /*vtt*/ false, /*kalmanFitForward*/ true, step++,
@@ -620,55 +622,55 @@ void ConformalTracking::processEvent(LCEvent* evt) {
   /*std::sort(conformalTracks.begin(),conformalTracks.end(),sort_by_length);
 
     for(int existingTrack=0;existingTrack<conformalTracks.size();existingTrack++){
-        
+
         bool clone = false; bool saved = false;
-        
+
         for(int savedTrack=0;savedTrack<conformalTracksFinal.size();savedTrack++){
-            
+
         const int nOverlappingHits = overlappingHits(conformalTracks[existingTrack],conformalTracksFinal[savedTrack]);
         if( nOverlappingHits >= 2) {
             clone = true;
-            
+
             // Calculate the new and existing chi2 values
             double newchi2 = (conformalTracks[existingTrack]->chi2ndofZS()*conformalTracks[existingTrack]->chi2ndofZS() + conformalTracks[existingTrack]->chi2ndof()*conformalTracks[existingTrack]->chi2ndof());
             double oldchi2 = (conformalTracksFinal[savedTrack]->chi2ndofZS()*conformalTracksFinal[savedTrack]->chi2ndofZS() + conformalTracksFinal[savedTrack]->chi2ndof()*conformalTracksFinal[savedTrack]->chi2ndof());
-            
+
             double deltachi2ZS = (conformalTracks[existingTrack]->chi2ndofZS()-conformalTracksFinal[savedTrack]->chi2ndofZS());
             double deltachi2 = (conformalTracks[existingTrack]->chi2ndof()-conformalTracksFinal[savedTrack]->chi2ndof());
-            
+
             // If the new track is a subtrack of an existing track, don't consider it further (already try removing bad hits from tracks
             if(nOverlappingHits == conformalTracks[existingTrack]->m_clusters.size()) break;
-            
+
             // Otherwise take the longest if the delta chi2 is not too much
             else if(conformalTracks[existingTrack]->m_clusters.size() >= conformalTracksFinal[savedTrack]->m_clusters.size()){ // New track longer/equal in length
-                
+
                 // Increase in chi2 is too much (double)
                 if( (newchi2 - oldchi2) > oldchi2) break;
-                
+
                 // Otherwise take it
                 delete conformalTracksFinal[savedTrack];
                 conformalTracksFinal[savedTrack] = conformalTracks[existingTrack]; saved = true;
             }
             else if(conformalTracks[existingTrack]->m_clusters.size() < conformalTracksFinal[savedTrack]->m_clusters.size()){ // Old track longer
-                
+
                 // Must improve chi2 by factor two
                 if( (newchi2 - 0.5*oldchi2) > 0.) break;
-                
+
                 // Otherwise take it
                 delete conformalTracksFinal[savedTrack];
                 conformalTracksFinal[savedTrack] = conformalTracks[existingTrack]; saved = true;
             }
-            
+
             break;
         }
         }
-        
+
         if(!clone){
             conformalTracksFinal.push_back(conformalTracks[existingTrack]);
         }else{
             if(!saved) delete conformalTracks[existingTrack];
         }
-        
+
     }
 	//*/
 
@@ -2530,12 +2532,12 @@ void ConformalTracking::fitWithPoint(KDTrack kdTrack, SKDCluster& hit, double& d
   double chi2   = kdTrack.chi2ndof();
   double chi2zs = kdTrack.chi2ndofZS();
   /*if(m_debugPlots){
-    
+
     double xMeasured = hit->getU();
     double yMeasured = hit->getV();
     double dx = hit->getErrorU();
     double dv = hit->getErrorV();
-    
+
     if(kdTrack.m_rotated){
       double newxMeasured = yMeasured;
       double newyMeasured = -1. * xMeasured;
@@ -2550,9 +2552,9 @@ void ConformalTracking::fitWithPoint(KDTrack kdTrack, SKDCluster& hit, double& d
     // Get the error on the hit position
     double term = kdTrack.m_gradient + 2. * kdTrack.m_quadratic * xMeasured;
     double dy2  = (dv * dv) + (term * term * dx * dx);
-    
+
     streamlog_out(DEBUG7)<<"- hit has delta chi2 of "<<(residualY * residualY) / (dy2)<<std::endl;
-    
+
   }*/
   kdTrack.add(hit);
   kdTrack.linearRegression();
