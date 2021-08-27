@@ -3,12 +3,16 @@
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/12348/badge.svg)](https://scan.coverity.com/projects/ilcsoft-conformaltracking)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.2708196.svg)](https://doi.org/10.5281/zenodo.2708196)
 
+
 Package for running pattern recognition based on conformal mapping and cellular automaton. This is not tied to a given geometry, but has been developed for the CLIC detector model 2015.
 
 ConformalTracking is distributed under the [GPLv3 License](http://www.gnu.org/licenses/gpl-3.0.en.html)
 
 [![License](https://www.gnu.org/graphics/gplv3-127x51.png)](https://www.gnu.org/licenses/gpl-3.0.en.html)
 
+## CERN Summer Student project 2021
+
+This version of conformal tracking was developed as a CERN Summer Student project and uses single hit time particle information in the track reconstruction. A parameter MaxTimeDifference for the maximum hit time difference between two hits is defined for each step of the reconstruction. The current value of MaxTimeDifference is only a placeholder. A time cut based on MaxTimeDifference is added to the filter for found neighbour hits in all nearest neighbour searches. The corresponding steering file can be found in https://github.com/RCLanger/CLICPerformance/blob/hit_information/clicConfig/clicReconstruction.xml.
 
 ## License and Copyright
 Copyright (C), ConformalTracking Authors
