@@ -12,7 +12,9 @@ ConformalTracking is distributed under the [GPLv3 License](http://www.gnu.org/li
 
 ## CERN Summer Student project 2021
 
-This version of conformal tracking was developed as a CERN Summer Student project and uses single hit time particle information in the track reconstruction. A parameter MaxTimeDifference for the maximum hit time difference between two hits is defined for each step of the reconstruction. The current value of MaxTimeDifference is only a placeholder. A time cut based on MaxTimeDifference is added to the filter for found neighbour hits in all nearest neighbour searches. The corresponding steering file can be found in https://github.com/RCLanger/CLICPerformance/blob/hit_information/clicConfig/clicReconstruction.xml.
+This version of conformal tracking was developed as a CERN Summer Student project and uses single hit time particle information in the track reconstruction. A parameter MaxTimeDifference for the maximum hit time difference between two hits is defined for each step of the reconstruction. The current value of MaxTimeDifference is only a placeholder. A time cut based on MaxTimeDifference is added to the filter for found neighbour hits in all nearest neighbour searches.
+
+The corresponding steering file can be found in https://github.com/RCLanger/CLICPerformance/blob/hit_information/clicConfig/clicReconstruction.xml.
 
 ## License and Copyright
 Copyright (C), ConformalTracking Authors
@@ -77,6 +79,7 @@ The *@Parameters* are
   * Chi2Cut
   * MinClustersOnTrack
   * MaxDistance
+  * MaxTimeDifference
   * SlopeZRange
   * HighPTCut
 
