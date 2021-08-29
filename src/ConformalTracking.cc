@@ -974,7 +974,7 @@ void ConformalTracking::buildNewTracks(UniqueKDTracks& conformalTracks, SharedKD
     double           theta = kdhit->getTheta();
     // Filter already if the neighbour is used, is on the same detector layer,
     // or is in the opposite side of the detector and points inwards
-    
+
     if (radialSearch)
       nearestNeighbours->allNeighboursInRadius(
           kdhit, parameters._maxDistance, results, [&kdhit, vertexToTracker, searchTime](SKDCluster const& nhit) {
@@ -988,7 +988,7 @@ void ConformalTracking::buildNewTracks(UniqueKDTracks& conformalTracks, SharedKD
             //radial conditions not met
             if ((vertexToTracker && nhit->getR() >= kdhit->getR()) || (!vertexToTracker && nhit->getR() <= kdhit->getR()))
               return true;
-            if (abs(kdhit->getT() - nhit ->getT()) > searchTime )
+            if ((vertexToTracker && nhit->getT() <= kdhit->getT() && nhit->getT() - kdhit->getT() > searchTime ) || (!vertexToTracker && nhit->getT() >= kdhit->getT() && kdhit->getT() - nhit->getT() > searchTime))
               return true;
             return false;
           });
@@ -1005,7 +1005,7 @@ void ConformalTracking::buildNewTracks(UniqueKDTracks& conformalTracks, SharedKD
             //radial conditions not met
             if ((vertexToTracker && nhit->getR() >= kdhit->getR()) || (!vertexToTracker && nhit->getR() <= kdhit->getR()))
               return true;
-            if (abs(kdhit->getT() - nhit ->getT()) > searchTime )
+            if ((vertexToTracker && nhit->getT() <= kdhit->getT() && nhit->getT() - kdhit->getT() > searchTime ) || (!vertexToTracker && nhit->getT() >= kdhit->getT() && kdhit->getT() - nhit->getT() > searchTime))
               return true;
             return false;
           });
@@ -1392,7 +1392,7 @@ bool ConformalTracking::neighbourIsCompatible(const SKDCluster& neighbourHit, co
 }
 // Take a collection of tracks and try to extend them into the collection of clusters passed.
 void ConformalTracking::extendTracks(UniqueKDTracks& conformalTracks, SharedKDClusters& collection,
-                                     UKDTree& nearestNeighbours, Parameters const& parameters) {
+                                     UKDTree& nearestNeighbours, Parameters const& parameters, bool vertexToTracker) {
   // Loop over all current tracks. At the moment this is a "stupid" algorithm: it will simply try to add every
   // hit in the collection to every track, and keep the ones thta have a good chi2. In fact, it will extrapolate
   // the track and do a nearest neighbours search, but this seemed to fail for some reason, TODO!
@@ -1515,9 +1515,10 @@ void ConformalTracking::extendTracks(UniqueKDTracks& conformalTracks, SharedKDCl
       //Time selection:
       double searchTime = parameters._maxTimeDifference;
       SKDCluster endhit= track->m_clusters[nclusters - 1];
-      if(abs(endhit->getT() - kdhit->getT()) > searchTime ) {
-        streamlog_out(DEBUG7)  << "-- killed by time cut" << std::endl;
+      if ((vertexToTracker && kdhit->getT() <= endhit->getT() && kdhit->getT() - endhit->getT() > searchTime ) || (!vertexToTracker && kdhit->getT() >= endhit->getT() && endhit->getT() - kdhit->getT() > searchTime)) {
+        std::cout  << "-- killed by time cut" << std::endl;
       }
+
       // Now fit the track with the new hit and check the increase in chi2
       double deltaChi2(0.), deltaChi2zs(0.);
 
@@ -1612,7 +1613,7 @@ void ConformalTracking::extendSeedCells(SharedCells& cells, UKDTree& nearestNeig
               return true;
             if ((vertexToTracker && nhit->getR() >= hit->getR()) || (!vertexToTracker && nhit->getR() <= hit->getR()))
               return true;
-            if (abs(hit->getT() - nhit->getT()) > searchTime)
+            if ((vertexToTracker && nhit->getT() <= hit->getT() && nhit->getT() - hit->getT() > searchTime ) || (!vertexToTracker && nhit->getT() >= hit->getT() && hit->getT() - nhit->getT() > searchTime))
               return true;
             return false;
           });
@@ -1927,7 +1928,7 @@ void ConformalTracking::extendTracksPerLayer(UniqueKDTracks& conformalTracks, Sh
 
             if ((vertexToTracker && nhit->getR() > kdhit->getR()) || (!vertexToTracker && nhit->getR() < kdhit->getR()))
               return true;
-            if (abs(kdhit->getT() - nhit->getT()) > searchTime)
+            if ((vertexToTracker && nhit->getT() <= kdhit->getT() && nhit->getT() - kdhit->getT() > searchTime ) || (!vertexToTracker && nhit->getT() >= kdhit->getT() && kdhit->getT() - nhit->getT() > searchTime))
               return true;
             return false;
           });
@@ -2035,6 +2036,12 @@ void ConformalTracking::extendTracksPerLayer(UniqueKDTracks& conformalTracks, Sh
           if ((vertexToTracker && neighbour->getR() >= kdhit->getR()) ||
               (!vertexToTracker && neighbour->getR() <= kdhit->getR())) {
             streamlog_out(DEBUG9) << "-- radial conditions not met" << std::endl;
+            continue;
+          }
+
+          //Check that time conditions are met
+          if ((vertexToTracker && neighbour->getT() <= kdhit->getT() && neighbour->getT() - kdhit->getT() > searchTime ) || (!vertexToTracker && neighbour->getT() >= kdhit->getT() && kdhit->getT() - neighbour->getT() > searchTime)) {
+            streamlog_out(DEBUG9) << "-- time conditions not met" << std::endl;
             continue;
           }
 

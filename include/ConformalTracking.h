@@ -79,7 +79,7 @@ public:
   void buildNewTracks(UniqueKDTracks&, SharedKDClusters&, UKDTree&, Parameters const&, bool radialSearch = false,
                       bool vertexToTracker = true);
   bool neighbourIsCompatible(const SKDCluster& neighbourHit, const SKDCluster& seedHit, const double slopeZRange);
-  void extendTracks(UniqueKDTracks&, SharedKDClusters&, UKDTree&, Parameters const&);
+  void extendTracks(UniqueKDTracks&, SharedKDClusters&, UKDTree&, Parameters const&, bool vertexToTracker = true);
   void combineCollections(SharedKDClusters&, UKDTree&, std::vector<int> const&, std::map<int, SharedKDClusters> const&);
 
   void extendHighPT(UniqueKDTracks&, SharedKDClusters&, UKDTree&, Parameters const&, bool radialSearch = false);
