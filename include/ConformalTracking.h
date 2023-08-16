@@ -21,6 +21,10 @@
 #include <TH1F.h>
 #include <TH2F.h>
 #include <TH3F.h>
+#include <THStack.h>
+#include <TGraph.h>
+
+
 
 #include <algorithm>
 #include <map>
@@ -198,6 +202,17 @@ protected:
   TH2F* m_uvDistribution  = nullptr;
   TH2F* m_xyDistribution  = nullptr;
   TH3F* m_xyzDistribution = nullptr;
+
+  // hist for time difference of fakeHit and neighbor (weber)
+  TH1* hist_physics = new TH1F("hist_physics","Timing difference between fakehit and physics; time difference (ns); number of hits",100,0,10);
+  TH1* hist_overlay = new TH1F("hist_overlay","Timing difference between fakehit and overlay; time difference (ns); number of hits",100,0,10);
+  TH1* hist_true = new TH1F("hist_true","Timing difference between fakehit and its true hit; time difference (ns); number of hits",100,0,10);
+  // TH1* hist_PhysicsAndOverlay = new TH1F("hist_combined","Timing difference between fake and neighbor; time difference (ns); number of hits",100,0,10);
+  TCanvas* c1_seperate = new TCanvas("time difference","time difference",800,600);
+  TCanvas* c1_combined = new TCanvas("combined","combined",800,600);
+
+
+
 
   // Other constants
   double                               m_thetaRange                 = 0.0;

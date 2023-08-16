@@ -143,6 +143,7 @@ public:
   void setU(double u) { m_u = u; }
   void setV(double v) { m_v = v; }
   void setR(double r) { m_r = r; }
+  void setT(double t) { m_time = t;} // (weber)
   void setTheta(double theta) { m_theta = theta; }
   void setZ(double z) { m_z = z; }
   void setError(double error) { m_error = error; }

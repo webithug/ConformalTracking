@@ -34,6 +34,7 @@
 #include <TLorentzVector.h>
 #include <TStopwatch.h>
 
+
 #include <algorithm>
 #include <cfloat>
 #include <climits>
@@ -42,6 +43,7 @@
 #include <map>
 #include <sstream>
 #include <utility>
+
 
 using namespace lcio;
 using namespace marlin;
@@ -144,6 +146,12 @@ void ConformalTracking::registerParameters() {
 }
 
 void ConformalTracking::init() {
+
+  if (m_debugPlots) {
+  // divide the canvas for fakehit timing histogram (weber)
+  c1_seperate -> Divide(1,2);
+  }
+
   // Print the initial parameters
   printParameters();
 
@@ -876,7 +884,7 @@ void ConformalTracking::processEvent(LCEvent* evt) {
 
 void ConformalTracking::end() {
   streamlog_out(MESSAGE) << " end()  " << name() << " processed " << m_eventNumber << " events in " << m_runNumber
-                         << " runs " << std::endl;
+                         << " runs. " << std::endl;
 
   // Write debug canvases to output file
   if (m_debugPlots) {
@@ -925,6 +933,7 @@ void ConformalTracking::buildNewTracks(UniqueKDTracks& conformalTracks, SharedKD
                                        UKDTree& nearestNeighbours, Parameters const& parameters, bool radialSearch,
                                        bool vertexToTracker) {
   streamlog_out(DEBUG9) << "*** buildNewTracks" << std::endl;
+  // cout << "start build new tracks" <<endl; // (weber cout)
 
   // Sort the input collection by radius - higher to lower if starting with the vertex detector (high R in conformal space)
   std::sort(collection.begin(), collection.end(), (vertexToTracker ? sort_by_radiusKD : sort_by_lower_radiusKD));
@@ -972,43 +981,166 @@ void ConformalTracking::buildNewTracks(UniqueKDTracks& conformalTracks, SharedKD
     SharedKDClusters results;
     double           searchTime = parameters._maxTimeDifference;
     double           theta = kdhit->getTheta();
+
+
+
+    
     // Filter already if the neighbour is used, is on the same detector layer,
     // or is in the opposite side of the detector and points inwards
 
-    if (radialSearch)
-      nearestNeighbours->allNeighboursInRadius(
-          kdhit, parameters._maxDistance, results, [&kdhit, vertexToTracker, searchTime](SKDCluster const& nhit) {
-            if (nhit->used())
-              return true;
-            if (kdhit->sameLayer(nhit))
-              return true;
-            //not pointing in the same direction
-            if (nhit->endcap() && kdhit->endcap() && (nhit->forward() != kdhit->forward()))
-              return true;
-            //radial conditions not met
-            if ((vertexToTracker && nhit->getR() >= kdhit->getR()) || (!vertexToTracker && nhit->getR() <= kdhit->getR()))
-              return true;
-            if ((vertexToTracker && nhit->getT() <= kdhit->getT() && nhit->getT() - kdhit->getT() > searchTime ) || (!vertexToTracker && nhit->getT() >= kdhit->getT() && kdhit->getT() - nhit->getT() > searchTime))
-              return true;
-            return false;
-          });
-    else
-      nearestNeighbours->allNeighboursInTheta(
-          theta, m_thetaRange, results, [&kdhit, vertexToTracker, searchTime](SKDCluster const& nhit) {
-            if (nhit->used())
-              return true;
-            if (kdhit->sameLayer(nhit))
-              return true;
-            //not pointing in the same direction
-            if (nhit->endcap() && kdhit->endcap() && (nhit->forward() != kdhit->forward()))
-              return true;
-            //radial conditions not met
-            if ((vertexToTracker && nhit->getR() >= kdhit->getR()) || (!vertexToTracker && nhit->getR() <= kdhit->getR()))
-              return true;
-            if ((vertexToTracker && nhit->getT() <= kdhit->getT() && nhit->getT() - kdhit->getT() > searchTime ) || (!vertexToTracker && nhit->getT() >= kdhit->getT() && kdhit->getT() - nhit->getT() > searchTime))
-              return true;
-            return false;
-          });
+    // implement time cut here (weber)
+    if (m_debugPlots){
+      double true_neighbor_timing = 100;
+      bool is_there_true_hit = false;
+    
+      if (radialSearch)
+        nearestNeighbours->allNeighboursInRadius( 
+            kdhit, parameters._maxDistance, results, [&kdhit, vertexToTracker, searchTime, ho=hist_overlay, ht=hist_true,  copy_kdSimHits = kdSimHits, copy_kdParticles = kdParticles , &tnt=true_neighbor_timing, &itth=is_there_true_hit](SKDCluster const& nhit) { // uses lamda function to filter allNeighborInRadius (weber)
+              if (nhit->used()){
+                  return true;
+              }
+              if (kdhit->sameLayer(nhit)){
+                  return true;
+              }
+              //not pointing in the same direction
+              if (nhit->endcap() && kdhit->endcap() && (nhit->forward() != kdhit->forward())){
+                  return true;
+              }
+              
+              // max time difference cut (weber)
+              if (std::abs( nhit->getT() - kdhit->getT() ) > searchTime ){
+                  return true;
+              }
+              // radial and time order cut (weber)
+              if (vertexToTracker){
+                if((nhit->getR() >= kdhit->getR())||(nhit->getT() <= kdhit->getT()))
+                  return true;
+              }
+              if (!vertexToTracker) {
+                if((nhit->getR() <= kdhit->getR())||(nhit->getT() >= kdhit->getT()))
+                  return true;
+              }
+              // calculate the timing difference between seed and overlay, seed and true hit
+              if( copy_kdSimHits.at(nhit) -> isOverlay() ){
+                  ho -> Fill( std::abs( nhit->getT() - kdhit -> getT() ) );
+              }
+              else if ( copy_kdParticles.at(nhit) == copy_kdParticles.at(kdhit) ) {
+                  itth = true;
+                  if( tnt > std::abs( nhit->getT() - kdhit -> getT() ) ){
+                      tnt = std::abs( nhit->getT() - kdhit -> getT() );
+                      std::cout<< "tnt = " << tnt << std::endl;
+              } 
+              }
+              return false;
+            });
+      else
+        nearestNeighbours->allNeighboursInTheta(
+            theta, m_thetaRange, results, [&kdhit, vertexToTracker, searchTime](SKDCluster const& nhit) {
+              if (nhit->used()){
+                  return true;
+              }
+                
+              if (kdhit->sameLayer(nhit)){
+                  return true;
+              }
+                
+              //not pointing in the same direction
+              if (nhit->endcap() && kdhit->endcap() && (nhit->forward() != kdhit->forward())){
+                  return true;
+              }
+              
+              // max time difference cut (weber)
+              if (std::abs(nhit->getT() - kdhit->getT()) > searchTime){
+                  return true;
+              }
+              // radial and time order cut (weber)
+              if (vertexToTracker){
+                if((nhit->getR() >= kdhit->getR())||(nhit->getT() <= kdhit->getT()))
+                  return true;
+              }
+              if (!vertexToTracker) {
+                if((nhit->getR() <= kdhit->getR())||(nhit->getT() >= kdhit->getT()))
+                  return true;
+              }
+              return false;
+            });
+
+            // save the true hit histogram (weber)
+            if(is_there_true_hit){
+            hist_true -> Fill( true_neighbor_timing );
+            cout<<"true hit diff filled = "<< true_neighbor_timing<<endl; //(weber)
+            }
+
+    }
+    else{
+      if (radialSearch)
+        nearestNeighbours->allNeighboursInRadius( 
+            kdhit, parameters._maxDistance, results, [&kdhit, vertexToTracker, searchTime, ho=hist_overlay, ht=hist_true](SKDCluster const& nhit) { // uses lamda function to filter allNeighborInRadius (weber)
+              if (nhit->used()){
+                  return true;
+              }
+              if (kdhit->sameLayer(nhit)){
+                  return true;
+              }
+              //not pointing in the same direction
+              if (nhit->endcap() && kdhit->endcap() && (nhit->forward() != kdhit->forward())){
+                  return true;
+              }
+              
+              // max time difference cut (weber)
+              if (std::abs( nhit->getT() - kdhit->getT() ) > searchTime ){
+                  return true;
+              }
+              // radial and time order cut (weber)
+              if (vertexToTracker){
+                if((nhit->getR() >= kdhit->getR())||(nhit->getT() <= kdhit->getT()))
+                  return true;
+              }
+              if (!vertexToTracker) {
+                if((nhit->getR() <= kdhit->getR())||(nhit->getT() >= kdhit->getT()))
+                  return true;
+              }
+              
+              return false;
+            });
+      else
+        nearestNeighbours->allNeighboursInTheta(
+            theta, m_thetaRange, results, [&kdhit, vertexToTracker, searchTime](SKDCluster const& nhit) {
+              if (nhit->used()){
+                  return true;
+              }
+                
+              if (kdhit->sameLayer(nhit)){
+                  return true;
+              }
+                
+              //not pointing in the same direction
+              if (nhit->endcap() && kdhit->endcap() && (nhit->forward() != kdhit->forward())){
+                  return true;
+              }
+              
+              // max time difference cut (weber)
+              if (std::abs(nhit->getT() - kdhit->getT()) > searchTime){
+                  return true;
+              }
+              // radial and time order cut (weber)
+              if (vertexToTracker){
+                if((nhit->getR() >= kdhit->getR())||(nhit->getT() <= kdhit->getT()))
+                  return true;
+              }
+              if (!vertexToTracker) {
+                if((nhit->getR() <= kdhit->getR())||(nhit->getT() >= kdhit->getT()))
+                  return true;
+              }
+              return false;
+            });
+      
+
+    }
+    
+    
+
+
 
     if (m_debugTime)
       streamlog_out(DEBUG7) << "  Time report: Searching for " << results.size() << " neighbours took "
@@ -1372,6 +1504,37 @@ void ConformalTracking::buildNewTracks(UniqueKDTracks& conformalTracks, SharedKD
       streamlog_out(DEBUG7) << " Time report: Total time for seed hit " << nKDHit << " = "
                             << stopwatch_hit_total.RealTime() * 1000 << std::scientific << " milli-seconds" << std::endl;
   }
+  
+  // // drawing the time difference histogram for debug (weber)
+  //   c1_seperate -> cd(1);
+  //   hist_overlay -> SetLineColor(kRed);
+  //   hist_overlay -> SetFillColor(kRed);
+  //   hist_overlay -> Draw();
+
+  //   c1_seperate -> cd(2);
+  //   hist_true -> SetLineWidth(2);
+  //   hist_true -> Draw();
+
+  //   // c1_seperate -> cd(3);
+  //   // hist_true -> SetLineWidth(2);
+  //   // hist_true -> SetLineColor(kGreen);
+  //   // hist_true -> Draw();
+
+
+  //   c1_combined -> cd();
+
+  //   // THStack* hist_PhysicsAndOverlay = new THStack("hist_combined","Timing difference between fakehit and neighbors; time difference (ns); number of hits");    
+  //   // hist_PhysicsAndOverlay -> Add( hist_overlay );
+  //   // hist_PhysicsAndOverlay -> Add( hist_physics );
+  //   // hist_PhysicsAndOverlay -> Add( hist_true );
+  //   // hist_PhysicsAndOverlay -> Draw();
+
+  //   c1_seperate->SaveAs("cut_one/cutone_seperated_time_difference.png");
+  //   // c1_combined -> SaveAs("fakeHit&overlay/combined_time_difference.png"); 
+
+  //   // hist_PhysicsAndOverlay -> Delete();
+
+  // std::cout<<"done build_new_track"<<endl; //(weber cout)
 }
 
 // Check that the neighbour has the z slope in the required range compared to the seed
@@ -1396,6 +1559,8 @@ void ConformalTracking::extendTracks(UniqueKDTracks& conformalTracks, SharedKDCl
   // Loop over all current tracks. At the moment this is a "stupid" algorithm: it will simply try to add every
   // hit in the collection to every track, and keep the ones thta have a good chi2. In fact, it will extrapolate
   // the track and do a nearest neighbours search, but this seemed to fail for some reason, TODO!
+
+  // cout<< "start extendtracks" << endl; // (weber cout)
 
   int nTracks = conformalTracks.size();
   streamlog_out(DEBUG7) << "EXTENDING " << nTracks << " tracks, into " << collection.size() << " hits" << std::endl;
@@ -1515,6 +1680,18 @@ void ConformalTracking::extendTracks(UniqueKDTracks& conformalTracks, SharedKDCl
       //Time selection:
       double searchTime = parameters._maxTimeDifference;
       SKDCluster endhit= track->m_clusters[nclusters - 1];
+      // // could try to do max time difference cut here (weber)
+      // if (std::abs(endhit->getT() - kdhit->getT() > searchTime))
+      //   return true;
+      // // time order cut (weber)
+      // if (vertexToTracker){
+      //   if((nhit->getT() <= kdhit->getT()))
+      //     return true;
+      // }
+      // else {
+      //   if((nhit->getT() >= kdhit->getT()))
+      //     return true;
+      // }
       if ((vertexToTracker && kdhit->getT() <= endhit->getT() && kdhit->getT() - endhit->getT() > searchTime ) || (!vertexToTracker && kdhit->getT() >= endhit->getT() && endhit->getT() - kdhit->getT() > searchTime)) {
         std::cout  << "-- killed by time cut" << std::endl;
       }
@@ -1538,7 +1715,7 @@ void ConformalTracking::extendTracks(UniqueKDTracks& conformalTracks, SharedKDCl
         continue;
 
       bool onSameSensor = false;
-      for (auto const& clusterOnTrack : track->m_clusters) {
+      for (auto const& clusterOnTrack : track->m_clusters) {  
         if (kdhit->sameSensor(clusterOnTrack)) {
           onSameSensor = true;
           break;
@@ -1564,7 +1741,8 @@ void ConformalTracking::extendTracks(UniqueKDTracks& conformalTracks, SharedKDCl
       bestCluster = nullptr;
     }
 
-  }  // End of loop over tracks
+  }  // End of loop over tracks (weber)
+// std::cout<< "done extendTracks" << endl; // (weber cout)
 }
 
 // Extend seed cells
@@ -1573,6 +1751,8 @@ void ConformalTracking::extendSeedCells(SharedCells& cells, UKDTree& nearestNeig
                                         bool vertexToTracker) {
   streamlog_out(DEBUG8) << "***** extendSeedCells" << std::endl;
 
+  // cout<< "start extendseedcells" << endl; // ( weber cout)
+   
   unsigned int nCells   = 0;
   int          depth    = 0;
   int          startPos = 0;
@@ -1599,26 +1779,46 @@ void ConformalTracking::extendSeedCells(SharedCells& cells, UKDTree& nearestNeig
         searchDistance = 1.2 * hit->getR();
 
       // Extrapolate along the cell and then make a 2D nearest neighbour search at this extrapolated point
-      SKDCluster const& fakeHit =
-          extrapolateCell(cells[itCell], searchDistance / 2.);  // TODO: make this search a function of radius
+      SKDCluster const& fakeHit = extrapolateCell(cells[itCell], searchDistance / 2.);  // TODO: make this search a function of radius
+    //   cout << "fakeHit timing: " << fakeHit -> getT() << endl; // (weber)
+
       SharedKDClusters results;
       double searchTime = parameters._maxTimeDifference;
-      nearestNeighbours->allNeighboursInRadius(
-          fakeHit, 0.625 * searchDistance, results, [&hit, vertexToTracker, searchTime](SKDCluster const& nhit) {
+
+      
+      // loop over neighbor to see which hit corresponds to the fakehit
+      nearestNeighbours->allNeighboursInRadius( 
+          fakeHit, 0.625 * searchDistance, results, [&hit, vertexToTracker, searchTime, ho=hist_overlay, hp=hist_physics, ht=hist_true, fH=fakeHit](SKDCluster const& nhit) {
             if (nhit->used())
               return true;
-            if (hit->sameLayer(nhit))
+            if (hit->sameLayer(nhit)) 
               return true;
             if (nhit->endcap() && hit->endcap() && (nhit->forward() != hit->forward()))
               return true;
-            if ((vertexToTracker && nhit->getR() >= hit->getR()) || (!vertexToTracker && nhit->getR() <= hit->getR()))
+          
+            // radial and time order cut (weber)
+            if (vertexToTracker){
+              if((nhit->getR() <= hit->getR())||(nhit->getT() >= hit->getT()))
+                return true;
+            }
+            if (!vertexToTracker) {
+              if((nhit->getR() >= hit->getR())||(nhit->getT() <= hit->getT()))
+                return true;
+            }
+            // // fakehit time cut (weber)
+            if ( std::abs( nhit->getT() - fH->getT() ) > 4){
+              // std::cout<< "fakehit cut" << std::endl;
               return true;
-            if ((vertexToTracker && nhit->getT() <= hit->getT() && nhit->getT() - hit->getT() > searchTime ) || (!vertexToTracker && nhit->getT() >= hit->getT() && hit->getT() - nhit->getT() > searchTime))
-              return true;
+            }
+
+       
+
+
             return false;
           });
 
-      streamlog_out(DEBUG8) << "- Found " << results.size() << " neighbours from cell extrapolation " << std::endl;
+
+      streamlog_out(DEBUG8) << "- Found -" << results.size() << " neighbours from cell extrapolation " << std::endl;
       if (extendingTrack) {
         streamlog_out(DEBUG7) << "Extrapolating cell " << itCell << " from u,v: " << hit->getU() << "," << hit->getV()
                               << std::endl;
@@ -1732,6 +1932,12 @@ void ConformalTracking::extendSeedCells(SharedCells& cells, UKDTree& nearestNeig
     startPos = nCells;
     depth++;
   }
+
+
+
+//  cout<<"extendseedcells complete" << endl; // (weber cout)
+
+
   streamlog_out(DEBUG8) << "extendSeedCells *****" << std::endl;
 
   // No more downstream cells can be added
@@ -2461,7 +2667,7 @@ SKDCluster ConformalTracking::extrapolateCell(SCell const& cell, double distance
   // Fake cluster to be returned
   SKDCluster extrapolatedCluster = std::make_shared<KDCluster>();
 
-  // Linear extrapolation of the cell - TODO: check that cell gradients have correct sign and remove checks here
+  // Linear extrapolation of the cell - TODO : check that cell gradients have correct sign and remove checks here
   double gradient = cell->getGradient();
   double deltaU   = sqrt(distance * distance / (1 + gradient * gradient));
   double deltaV   = abs(gradient) * deltaU;
@@ -2471,9 +2677,70 @@ SKDCluster ConformalTracking::extrapolateCell(SCell const& cell, double distance
   if ((cell->getStart()->getV() - cell->getEnd()->getV()) > 0)
     deltaV *= (-1.);
 
-  extrapolatedCluster->setU(cell->getEnd()->getU() + deltaU);
-  extrapolatedCluster->setV(cell->getEnd()->getV() + deltaV);
+  double u = cell->getEnd()->getU() + deltaU;
+  double v = cell->getEnd()->getV() + deltaV;
 
+  extrapolatedCluster->setU(u);
+  extrapolatedCluster->setV(v);
+
+  // calculate the timing of fakeHit (weber), starts ---------------------------------
+  
+  // getting the x,y of hits in cell
+  double x1 = cell->getStart()->getX();
+  double y1 = cell->getStart()->getY();
+  double x2 = cell->getEnd()->getX();
+  double y2 = cell->getEnd()->getY();
+
+  // get the x,y of fakeHit from its u,v
+  double x3 = u / ( pow(u,2) + pow(v,2) );
+  double y3 = -v / ( pow(u,2) + pow(v,2) );
+
+  // get the center of  circumcircle
+  double D = 2*( x1 * (y2 - y3) + x2* (y3 - y1) + x3* ( y1 - y2 ));
+  double xc =  ( ( pow(x1,2) + pow(y1,2) )*(y2-y3) + (pow(x2,2)+pow(y2,2))*(y3-y1) + (pow(x3,2)+pow(y3,2))*(y1-y2) ) / D;
+  double yc =  ( ( pow(x1,2) + pow(y1,2) )*(x3-x2) + (pow(x2,2)+pow(y2,2))*(x1-x3) + (pow(x3,2)+pow(y3,2))*(x2-x1) ) / D;
+
+  // get the angle travelled by the hits in the cell
+  double len_1c = sqrt( pow(x1-xc,2) + pow(y1-yc,2) );
+  double len_2c = sqrt( pow(x2-xc,2) + pow(y2-yc,2) );
+  double len_12 = sqrt( pow(x2-x1,2) + pow(y2-y1,2) );
+
+  double angle_12 = std::acos( (pow(len_12,2) - pow(len_1c,2) - pow(len_2c,2)) / ( -2*len_1c*len_2c ) ); // law of cos
+
+  // get the angle travelled from end cell to fakeHhit
+  double len_3c = sqrt( pow(x3-xc,2) + pow(y3-yc,2) );
+  double len_23 = sqrt( pow(x2-x3,2) + pow(y2-y3,2) );
+
+  double angle_23 = std::acos( (pow(len_23,2) - pow(len_2c,2) - pow(len_3c,2)) / ( -2*len_2c*len_3c ) ); // law of cos
+
+//   // use the z,t position to get the timing of fakeHit
+//   // get z,t of hits in cell
+//   double t1 = cell->getStart()->getT();
+//   double z1 = cell->getStart()->getZ();
+//   double t2 = cell->getEnd()->getT();
+//   double z2 = cell->getEnd()->getZ();
+
+//   // calculate the z of fakeHit
+//   double x3 = u / ( pow(u,2) + pow(v,2) );
+//   double z3 = ( (z2-z1) / (x2-x1) ) * ( x3-x1 ) + z1;
+
+//   // length between the hits on transverse plane
+//   double length_12 = sqrt( pow(x2-x1,2) + pow(z2-z1,2) );
+//   double length_23 = sqrt( pow(x2-x3,2) + pow(z2-z3,2) );
+  
+  double t1 = cell->getStart()->getT();
+  double t2 = cell->getEnd()->getT();
+
+  double fakeHit_timing = std::abs(t1 - t2) * ( angle_23 / angle_12 );
+
+  if (t1 > t2){
+    fakeHit_timing += t1;
+  }
+  else{
+    fakeHit_timing += t2;
+  }
+  extrapolatedCluster->setT(fakeHit_timing); 
+  // calculate the timing of fakeHit (weber), ends ---------------------------------
   return extrapolatedCluster;
 }
 
